@@ -113,6 +113,12 @@ class AverageMeter(object):
 def construct_lrscheduler(lrscheduler_type: str, init_lr: float) -> LRScheduler:
     if lrscheduler_type == "fixed":
         return LRFixedScheduler(init_lr=init_lr)
+    elif lrscheduler_type == "inverse_decay":
+        return InverseDecayScheduler(init_lr=init_lr)
+    elif lrscheduler_type == "cyclic":
+        return CyclicScheduler(max_lr=init_lr)
+    elif lrscheduler_type == "linear_decay":
+        return LinearLRDecay(init_lr=init_lr)
     else:
         raise ValueError("{} is not supported scheduler type".format(lrscheduler_type))
 
@@ -120,6 +126,28 @@ def construct_lrscheduler(lrscheduler_type: str, init_lr: float) -> LRScheduler:
 def construct_optimizer(optimizer_type: str, lrscheduler: LRScheduler) -> Optimizer:
     if optimizer_type == "gradient_descent":
         return GradientDescentOptimizer(lrscheduler=lrscheduler)
+    elif optimizer_type == "adam":
+        return AdamOptimizer(lrscheduler=lrscheduler, beta_1=0.5, beta_2=0.99)
+    elif optimizer_type == "avagrad":
+        return AvagradOptimizer(lrscheduler=lrscheduler, beta_1=0.5, beta_2=0.9)
+    elif optimizer_type == "radam":
+        return RadamOptimizer(lrscheduler=lrscheduler, beta_1=0.5, beta_2=0.99)
+    elif optimizer_type == "adamax":
+        return AdamaxOptimizer(lrscheduler=lrscheduler, beta_1=0.5, beta_2=0.9)
+    elif optimizer_type == "nadam":
+        return NadamOptimizer(lrscheduler=lrscheduler, beta_1=0.5, beta_2=0.99)
+    elif optimizer_type == "amsgrad":
+        return AMSGradOptimizer(lrscheduler=lrscheduler, beta_1=0.5, beta_2=0.99)
+    elif optimizer_type == "adabelief":
+        return AdaBeliefOptimizer(lrscheduler=lrscheduler, beta_1=0.5, beta_2=0.99)
+    elif optimizer_type == "adagrad":
+        return AdagradOptimizer(lrscheduler=lrscheduler)
+    elif optimizer_type == "rmsprop":
+        return RMSPropOptimizer(lrscheduler=lrscheduler, beta_2=0.90)
+    elif optimizer_type == "momentum":
+        return MomentumOptimizer(lrscheduler=lrscheduler, beta_1=0.9)
+    elif optimizer_type == "adadelta":
+        return AdadeltaOptimizer(lrscheduler=lrscheduler, beta_2=0.99)
     else:
         raise ValueError("{} is not supported optimizer type".format(optimizer_type))
     

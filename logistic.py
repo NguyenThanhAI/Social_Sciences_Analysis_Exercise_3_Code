@@ -8,10 +8,12 @@ from utils import *
 
 
 class Logistic(object):
-    def __init__(self, optimizer_type: str, lrscheduler_type: str, regularizer: str=None, init_lr: float=1e-3, weight_decay: float=1e-4, max_iter: int=10000, w_tol: float=1e-4, grad_tol: float=1e-4, limit_tol: int=5, use_bias: bool=True, initializer: str="xavier", num_steps_per_eval: int=100) -> None:
+    def __init__(self, optimizer_type: str, lrscheduler_type: str, seed: int, regularizer: str=None, init_lr: float=1e-3, weight_decay: float=1e-4, max_iter: int=10000, w_tol: float=1e-4, grad_tol: float=1e-4, limit_tol: int=5, use_bias: bool=True, initializer: str="xavier", num_steps_per_eval: int=100, verbosity: bool=True) -> None:
         lrscheduler = construct_lrscheduler(lrscheduler_type=lrscheduler_type, init_lr=init_lr)
         self.optimizer = construct_optimizer(optimizer_type=optimizer_type, lrscheduler=lrscheduler)
         
+        self.seed = seed
+        np.random.seed(self.seed)
         self.init_lr = init_lr
         self.regularizer = regularizer
         self.weight_decay = weight_decay
@@ -26,6 +28,7 @@ class Logistic(object):
         self.prev_weights = None
         
         self.num_steps_per_eval = num_steps_per_eval
+        self.verbosity = verbosity
         
         self.train_loss_meter = AverageMeter(name="train_loss", fmt=":.4f")
         self.val_loss_meter = AverageMeter(name="val_loss", fmt=":.4f")
@@ -38,6 +41,9 @@ class Logistic(object):
         self.val_aic = {}
         self.train_bic = {}
         self.val_bic = {}
+        
+        self.max_auc = 0
+        self.max_weights: np.ndarray = None
         
         
     def init_weights(self, x: np.ndarray) -> None:
@@ -126,6 +132,7 @@ class Logistic(object):
         
     
     def get_final_grad(self, raw_grad: np.ndarray) -> np.ndarray:
+        assert self.weights.shape[0] == raw_grad.shape[0]
         if self.regularizer == "l2":
             return raw_grad + 2 * self.weight_decay * self.weights
         else:
@@ -197,6 +204,10 @@ class Logistic(object):
         y_pred = self.predict(x=x, return_prob=True)
         fpr, tpr, thresholds = roc_curve(y_true=y, y_score=y_pred)
         plot_roc_curve(tpr=tpr, fpr=fpr)
+        
+    def restore_best_weights(self) -> None:
+        if self.max_weights is not None:
+            self.weights = self.max_weights
     
     
     def fit(self, train_x: np.ndarray, train_y: np.ndarray, val_x: np.ndarray, val_y: np.ndarray) -> None:
@@ -216,6 +227,7 @@ class Logistic(object):
             self.val_loss[i+1] = val_loss
             self.val_loss_meter.update(val=val_loss)
             
+
             if (i + 1) % self.num_steps_per_eval == 0:
                 train_auc, train_aic, train_bic = self.compute_metrics(x=train_x, y=train_y)
                 self.train_auc[i+1] = train_auc
@@ -225,9 +237,12 @@ class Logistic(object):
                 self.val_auc[i+1] = val_auc
                 self.val_aic[i+1] = val_aic
                 self.val_bic[i+1] = val_bic
-                print("Step {}, train AUC: {:.3f}, train AIC: {:.3f}, train BIC: {:.3f}, val AUC: {:.3f}, val AIC: {:.3f}, val BIC: {:.3f}".format(i + 1, train_auc, train_aic, train_bic, val_auc, val_aic, val_bic))
+                if val_auc > self.max_auc:
+                    self.max_auc = val_auc
+                    self.max_weights = copy.deepcopy(self.weights)
+                if self.verbosity == True:
+                    print("Step {}, train AUC: {:.3f}, train AIC: {:.3f}, train BIC: {:.3f}, val AUC: {:.3f}, val AIC: {:.3f}, val BIC: {:.3f}, diff weights: {:.10f}, grad norm: {:.3f}".format(i + 1, train_auc, train_aic, train_bic, val_auc, val_aic, val_bic, diff_weights, grad_norm))
                 
-            
             if diff_weights <= self.w_tol and grad_norm <= self.grad_tol:
                 stop_tol += 1
             else:
@@ -236,5 +251,10 @@ class Logistic(object):
             if stop_tol >= self.limit_tol:
                 break
             
-        self.plot_loss()
-        self.plot_roc(x=val_x, y=val_y)
+        self.restore_best_weights()
+        if self.verbosity:
+            print("Model weights: {}".format(self.weights.tolist()))
+        print("Max val auc: {}".format(self.max_auc))
+        if self.verbosity:
+            self.plot_loss()
+            self.plot_roc(x=val_x, y=val_y)
