@@ -215,6 +215,7 @@ class Logistic(object):
         self.init_weights(train_x)
         
         stop_tol = 0
+        auc_tol = 0
         
         for i in tqdm(range(self.max_iter)):
             diff_weights, grad_norm = self.step(x=train_x, y=train_y)
@@ -229,19 +230,29 @@ class Logistic(object):
             
 
             if (i + 1) % self.num_steps_per_eval == 0:
-                train_auc, train_aic, train_bic = self.compute_metrics(x=train_x, y=train_y)
-                self.train_auc[i+1] = train_auc
-                self.train_aic[i+1] = train_aic
-                self.train_bic[i+1] = train_bic
-                val_auc, val_aic, val_bic = self.compute_metrics(x=val_x, y=val_y)
-                self.val_auc[i+1] = val_auc
-                self.val_aic[i+1] = val_aic
-                self.val_bic[i+1] = val_bic
-                if val_auc > self.max_auc:
-                    self.max_auc = val_auc
-                    self.max_weights = copy.deepcopy(self.weights)
-                if self.verbosity == True:
-                    print("Step {}, train AUC: {:.3f}, train AIC: {:.3f}, train BIC: {:.3f}, val AUC: {:.3f}, val AIC: {:.3f}, val BIC: {:.3f}, diff weights: {:.10f}, grad norm: {:.3f}".format(i + 1, train_auc, train_aic, train_bic, val_auc, val_aic, val_bic, diff_weights, grad_norm))
+                try:
+                    train_auc, train_aic, train_bic = self.compute_metrics(x=train_x, y=train_y)
+                    self.train_auc[i+1] = train_auc
+                    self.train_aic[i+1] = train_aic
+                    self.train_bic[i+1] = train_bic
+                    val_auc, val_aic, val_bic = self.compute_metrics(x=val_x, y=val_y)
+                    self.val_auc[i+1] = val_auc
+                    self.val_aic[i+1] = val_aic
+                    self.val_bic[i+1] = val_bic
+                    if val_auc > self.max_auc:
+                        self.max_auc = val_auc
+                        self.max_weights = copy.deepcopy(self.weights)
+                        auc_tol = 0
+                    else:
+                        auc_tol += 1
+                    if self.verbosity == True:
+                        print("Step {}, train AUC: {:.3f}, train AIC: {:.3f}, train BIC: {:.3f}, val AUC: {:.3f}, val AIC: {:.3f}, val BIC: {:.3f}, diff weights: {:.10f}, grad norm: {:.3f}".format(i + 1, train_auc, train_aic, train_bic, val_auc, val_aic, val_bic, diff_weights, grad_norm))
+
+                    if auc_tol >= self.limit_tol:
+                        print("AUC-ROC does not improve. Stop training")
+                        break
+                except ValueError:
+                    break
                 
             if diff_weights <= self.w_tol and grad_norm <= self.grad_tol:
                 stop_tol += 1

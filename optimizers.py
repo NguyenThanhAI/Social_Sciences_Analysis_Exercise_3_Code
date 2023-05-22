@@ -470,5 +470,5 @@ class AdadeltaOptimizer(Optimizer):
         weights -= lr * p
         
         return weights
-        
-        
+    
+    

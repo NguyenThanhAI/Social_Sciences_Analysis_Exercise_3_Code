@@ -3,7 +3,7 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 
-from sklearn.preprocessing import LabelEncoder
+from sklearn.preprocessing import LabelEncoder, StandardScaler, MinMaxScaler
 from sklearn.metrics import auc
 from sklearn.model_selection import train_test_split
 
@@ -60,20 +60,22 @@ def create_data(csv_path: str, split_ratio: float=0.4, normalize: str="standardi
     if normalize.lower() == "identity":
         x = x
     elif normalize.lower() == "minmax":
-        x = (x - np.min(x, axis=0, keepdims=True))/(np.max(x, axis=0, keepdims=True) - np.min(x, axis=0, keepdims=True))
-        
+        #x = (x - np.min(x, axis=0, keepdims=True))/(np.max(x, axis=0, keepdims=True) - np.min(x, axis=0, keepdims=True))
+        x = MinMaxScaler().fit_transform(x)
     elif normalize.lower() == "standardize":
-        mean_x = np.mean(x, axis=0)
-        variance = np.sum((x - mean_x[np.newaxis, :])**2, axis=0)/(x.shape[0]-1)
-        std = np.sqrt(variance)
-        x = (x - mean_x[np.newaxis, :]) / std[np.newaxis, :]
+        #mean_x = np.mean(x, axis=0)
+        #variance = np.sum((x - mean_x[np.newaxis, :])**2, axis=0)/(x.shape[0]-1)
+        #std = np.sqrt(variance)
+        #x = (x - mean_x[np.newaxis, :]) / std[np.newaxis, :]
+        x = StandardScaler().fit_transform(x)
     else:
         raise ValueError("No normalizing initializer name {}".format(normalize))
     
     if chosen_features is None:
         pass
     elif chosen_features.startswith("pca"):
-        U, x = pca(x=x, alpha=0.95)
+        rate = float(chosen_features.split("_")[1]) / 100
+        U, x = pca(x=x, alpha=rate)
     else:
         x = x[:, list(map(lambda x: int(x.strip()[1:])-1, chosen_features.split("+")))]
         
@@ -119,34 +121,42 @@ def construct_lrscheduler(lrscheduler_type: str, init_lr: float) -> LRScheduler:
         return CyclicScheduler(max_lr=init_lr)
     elif lrscheduler_type == "linear_decay":
         return LinearLRDecay(init_lr=init_lr)
+    elif lrscheduler_type == "exponential_decay":
+        return ExponentialDecayScheduler(init_lr=init_lr, alpha=0.001)
+    elif lrscheduler_type == "factor_decay":
+        return FactorDecayScheduler(init_lr=init_lr, alpha=0.2, cycle=1000)
+    elif lrscheduler_type == "squareroot":
+        return SquareRootScheduler(init_lr=init_lr)
+    elif lrscheduler_type == "cosine":
+        return CosineLRSccheduler(max_lr=init_lr, max_steps=10000)
     else:
         raise ValueError("{} is not supported scheduler type".format(lrscheduler_type))
 
     
 def construct_optimizer(optimizer_type: str, lrscheduler: LRScheduler) -> Optimizer:
-    if optimizer_type == "gradient_descent":
+    if optimizer_type.lower() == "gradient_descent":
         return GradientDescentOptimizer(lrscheduler=lrscheduler)
-    elif optimizer_type == "adam":
-        return AdamOptimizer(lrscheduler=lrscheduler, beta_1=0.5, beta_2=0.99)
-    elif optimizer_type == "avagrad":
-        return AvagradOptimizer(lrscheduler=lrscheduler, beta_1=0.5, beta_2=0.9)
-    elif optimizer_type == "radam":
-        return RadamOptimizer(lrscheduler=lrscheduler, beta_1=0.5, beta_2=0.99)
-    elif optimizer_type == "adamax":
-        return AdamaxOptimizer(lrscheduler=lrscheduler, beta_1=0.5, beta_2=0.9)
-    elif optimizer_type == "nadam":
-        return NadamOptimizer(lrscheduler=lrscheduler, beta_1=0.5, beta_2=0.99)
-    elif optimizer_type == "amsgrad":
-        return AMSGradOptimizer(lrscheduler=lrscheduler, beta_1=0.5, beta_2=0.99)
-    elif optimizer_type == "adabelief":
-        return AdaBeliefOptimizer(lrscheduler=lrscheduler, beta_1=0.5, beta_2=0.99)
-    elif optimizer_type == "adagrad":
+    elif optimizer_type.lower() == "adam":
+        return AdamOptimizer(lrscheduler=lrscheduler, beta_1=0.9, beta_2=0.99)
+    elif optimizer_type.lower() == "avagrad":
+        return AvagradOptimizer(lrscheduler=lrscheduler, beta_1=0.9, beta_2=0.9)
+    elif optimizer_type.lower() == "radam":
+        return RadamOptimizer(lrscheduler=lrscheduler, beta_1=0.9, beta_2=0.99)
+    elif optimizer_type.lower() == "adamax":
+        return AdamaxOptimizer(lrscheduler=lrscheduler, beta_1=0.9, beta_2=0.9)
+    elif optimizer_type.lower() == "nadam":
+        return NadamOptimizer(lrscheduler=lrscheduler, beta_1=0.9, beta_2=0.99)
+    elif optimizer_type.lower() == "amsgrad":
+        return AMSGradOptimizer(lrscheduler=lrscheduler, beta_1=0.9, beta_2=0.99)
+    elif optimizer_type.lower() == "adabelief":
+        return AdaBeliefOptimizer(lrscheduler=lrscheduler, beta_1=0.9, beta_2=0.99)
+    elif optimizer_type.lower() == "adagrad":
         return AdagradOptimizer(lrscheduler=lrscheduler)
-    elif optimizer_type == "rmsprop":
+    elif optimizer_type.lower() == "rmsprop":
         return RMSPropOptimizer(lrscheduler=lrscheduler, beta_2=0.90)
-    elif optimizer_type == "momentum":
+    elif optimizer_type.lower() == "momentum":
         return MomentumOptimizer(lrscheduler=lrscheduler, beta_1=0.9)
-    elif optimizer_type == "adadelta":
+    elif optimizer_type.lower() == "adadelta":
         return AdadeltaOptimizer(lrscheduler=lrscheduler, beta_2=0.99)
     else:
         raise ValueError("{} is not supported optimizer type".format(optimizer_type))
