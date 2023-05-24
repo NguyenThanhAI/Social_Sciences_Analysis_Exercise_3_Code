@@ -1,0 +1,3 @@
+- Chạy file main.py để chọn ra các mô hình được huấn luyện từ code python và numpy
+- Chạy file main_sklearn.py để chọn ra các mô hình được huấn luyện từ thư viện sklearn
+- Chạy file read_and_visualize_models để vẽ các ROC Curve và tính xác suất ngưỡng tối ưu $p^*$ tương ứng với từng mô hình ứng viên
